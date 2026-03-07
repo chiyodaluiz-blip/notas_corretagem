@@ -1,0 +1,8 @@
+streamlit
+tempfile
+pandas
+streamlit
+tabula-py
+numpy
+tqdm
+PyPDF2
