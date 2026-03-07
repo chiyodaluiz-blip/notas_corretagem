@@ -20,7 +20,7 @@ import numpy as np
 from tqdm import tqdm
 from datetime import datetime
 from pandas.api.types import is_string_dtype
-from PyPDF2 import PdfFileReader
+from PyPDF2 import PdfReader
 
 
 
@@ -401,8 +401,9 @@ def run_notas(directory, brokerHouse):
                 file = os.path.join(directory, filename)
 
                 # Get the number of pages
-                pdf = PdfFileReader(open(file,'rb'))
-                n_pages = pdf.getNumPages()
+				with open(file, "rb") as f:
+				    pdf = PdfReader(f)
+				    n_pages = len(pdf.pages)
 
                 # flag to check if there are more than 1 page of trades in the day
                 last_date = '01/01/1900'
