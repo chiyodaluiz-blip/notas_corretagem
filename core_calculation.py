@@ -401,8 +401,8 @@ def run_notas(directory, brokerHouse):
                 file = os.path.join(directory, filename)
 
                 # Get the number of pages                
-				pdf = PdfReader(file)                
-				n_pages = len(pdf.pages)
+                pdf = PdfReader(file)                
+                n_pages = len(pdf.pages)
 
                 # flag to check if there are more than 1 page of trades in the day
                 last_date = '01/01/1900'
