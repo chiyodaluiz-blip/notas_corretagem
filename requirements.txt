@@ -5,3 +5,4 @@ tabula-py
 numpy
 tqdm
 PyPDF2
+default-jre
