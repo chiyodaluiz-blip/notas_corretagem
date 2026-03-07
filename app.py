@@ -3,7 +3,7 @@ import tempfile
 import os
 import pandas as pd
 
-from notas_core import run_notas
+from core_calculation import run_notas
 
 st.title("Processador de Notas de Corretagem (IRPF)")
 
