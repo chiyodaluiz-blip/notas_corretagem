@@ -12,6 +12,8 @@ parameters_trades = {}
 parameters_taxes = {}
 parameters_dates = {}
 
+# -------- PARAMETROS ORIGINAIS --------
+
 parameters_trades['Easynvest'] = {
     "top": 48,
     "left": 380,
@@ -45,41 +47,19 @@ parameters_dates['Easynvest'] = {
 }
 
 
+# -------- FUNÇÕES ORIGINAIS --------
+
 def br2us_ccy_format(df):
 
     if is_string_dtype(df):
+
         df = [x.replace('.', '') for x in df]
         df = [x.replace(',', '.') for x in df]
+
         df = np.array(df, dtype=np.float32)
 
     return df
 
-
-def get_dates(file, brokerHouse, page):
-
-    top = parameters_dates[brokerHouse]['top']
-    left = parameters_dates[brokerHouse]['left']
-    width = parameters_dates[brokerHouse]['width']
-    heights = parameters_dates[brokerHouse]['heights']
-    correct_str = parameters_dates[brokerHouse]['correct_str']
-
-    for height in heights:
-
-        dates = tabula.read_pdf(
-            file,
-            guess=True,
-            multiple_tables=True,
-            stream=True,
-            area=(height, top, left, width),
-            pages=page
-        )
-
-        if correct_str in str(dates[0].columns):
-            break
-
-    full_df = pd.concat(dates)
-
-    return full_df[correct_str].unique()[0]
 
 def trades_adjustment(dfs, desired_cols, new_col_names):
 
@@ -89,9 +69,6 @@ def trades_adjustment(dfs, desired_cols, new_col_names):
 
         for col in desired_cols:
 
-            if col not in df.columns:
-                continue
-
             next_column = df.columns[df.columns.get_loc(col)+1]
 
             if df[col].isnull().all() and 'Unnamed' in next_column:
@@ -99,7 +76,7 @@ def trades_adjustment(dfs, desired_cols, new_col_names):
                 df = df.drop(col, axis=1)
                 df.rename(columns={next_column: col}, inplace=True)
 
-        useful_df = df.loc[:, desired_cols].copy()
+        useful_df = df.loc[:,desired_cols].copy()
 
         useful_df.columns = new_col_names
 
@@ -109,7 +86,8 @@ def trades_adjustment(dfs, desired_cols, new_col_names):
         full_df.append(useful_df)
 
     return pd.concat(full_df)
-    
+
+
 def get_trades(file, brokerHouse, page, last_page_flag):
 
     top = parameters_trades[brokerHouse]['top']
@@ -151,55 +129,31 @@ def get_trades(file, brokerHouse, page, last_page_flag):
     return full_df
 
 
-def get_taxes(file, brokerHouse, page):
+def get_dates(file, brokerHouse, page):
 
-    top = parameters_taxes[brokerHouse]['top']
-    left = parameters_taxes[brokerHouse]['left']
-    width = parameters_taxes[brokerHouse]['width']
-    heights = parameters_taxes[brokerHouse]['heights']
-    correct_str = parameters_taxes[brokerHouse]['correct_str']
-    taxes_index_str = parameters_taxes[brokerHouse]['taxes_index_str']
-
-    desired_cols = parameters_taxes[brokerHouse]['desired_cols']
-    new_col_names = parameters_taxes[brokerHouse]['new_col_names']
+    top = parameters_dates[brokerHouse]['top']
+    left = parameters_dates[brokerHouse]['left']
+    width = parameters_dates[brokerHouse]['width']
+    heights = parameters_dates[brokerHouse]['heights']
+    correct_str = parameters_dates[brokerHouse]['correct_str']
 
     for height in heights:
 
-        taxes = tabula.read_pdf(
+        dates = tabula.read_pdf(
             file,
             guess=True,
             multiple_tables=True,
             stream=True,
             area=(height, top, left, width),
-            pages=page,
-            pandas_options={'dtype': str}
+            pages=page
         )
 
-        if correct_str in str(taxes[0].columns):
+        if correct_str in str(dates[0].columns):
             break
 
-    full_df = []
+    full_df = pd.concat(dates)
 
-    for df in taxes:
-
-        useful_df = df.set_index(taxes_index_str).T
-
-        useful_df = useful_df[desired_cols]
-
-        for col in desired_cols:
-
-            useful_df[col] = [x.replace('.', '') for x in useful_df[col]]
-            useful_df[col] = [x.replace(',', '.') for x in useful_df[col]]
-
-            useful_df[col] = useful_df[col].astype(float)
-
-        full_df.append(useful_df)
-
-    full_df = abs(pd.concat(full_df))
-
-    full_df.columns = new_col_names
-
-    return full_df
+    return full_df[correct_str].unique()[0]
 
 
 def pro_rata_taxes(trades, dates, taxes):
@@ -208,47 +162,36 @@ def pro_rata_taxes(trades, dates, taxes):
 
     df['Date'] = dates
 
-    df['QtdeSign'] = df['Qty']
+    df['QtdeSign'] = trades['Qty']
 
     negSign = df['BuyOrSell'] == 'V'
 
-    df.loc[negSign, 'QtdeSign'] = df.loc[negSign, 'QtdeSign'] * -1
+    df.loc[negSign, 'QtdeSign'] = df.loc[negSign, 'QtdeSign']*-1
 
-    df['ValorInvestido'] = df['Qty'] * df['Price']
+    df['ValorInvestido'] = df['Qty']*df['Price']
 
-    ratio = df['ValorInvestido'] / sum(df['ValorInvestido'])
+    ratio_per_trade = (df['ValorInvestido']/sum(df['ValorInvestido']))
 
-    df['TxLiq'] = np.array(taxes['TaxaLiquidacao']) * ratio
-    df['TxReg'] = np.array(taxes['TaxaRegistro']) * ratio
-    df['Emolumentos'] = np.array(taxes['Emolumentos']) * ratio
-    df['Impostos'] = np.array(taxes['Impostos']) * ratio
-    df['TxOp'] = np.array(taxes['TaxaOperacional']) * ratio
+    df['TotalFees'] = 0
 
-    df['TotalFees'] = df['TxLiq'] + df['TxReg'] + df['Emolumentos'] + df['Impostos'] + df['TxOp']
-
-    df['ValorPago'] = 0
-
-    df.loc[negSign, 'ValorPago'] = df['ValorInvestido'] - df['TotalFees']
-    df.loc[~negSign, 'ValorPago'] = df['ValorInvestido'] + df['TotalFees']
-
-    df['ValorPagoSign'] = df['ValorPago']
-
-    df.loc[negSign, 'ValorPagoSign'] *= -1
+    df['ValorPago'] = df['ValorInvestido']
 
     return df
 
 
-def validation_of_sum(df, taxes, log):
+def validation_of_sum(df,taxes,log):
 
-    value_error = abs(abs(sum(np.array(df['ValorPagoSign']))) - abs(np.array(taxes['ValorTotal'])))
+    value_error = abs(
+        abs(sum(np.array(df['ValorPago']))) - abs(np.array(taxes['ValorTotal']))
+    )
 
     if value_error > 1:
 
-        log(f"❌ Validation FAILED for day {df['Date'].unique()[0]} diff = {value_error:.2f}")
+        log(f"❌ ERROR day {df['Date'].unique()[0]} diff = {value_error}")
 
     else:
 
-        log(f"✅ Validation OK for day {df['Date'].unique()[0]}")
+        log(f"✅ Validation OK day {df['Date'].unique()[0]}")
 
     return value_error
 
@@ -282,6 +225,8 @@ def final_adjustments(full_output):
     return grouped
 
 
+# -------- FUNÇÃO PRINCIPAL --------
+
 def run_notas(directory, brokerHouse, log=print):
 
     full_output = []
@@ -294,52 +239,46 @@ def run_notas(directory, brokerHouse, log=print):
 
     for filename in files_in_folder:
 
-        if not filename.endswith(".pdf"):
-            continue
+        if filename.endswith(".pdf"):
 
-        file = os.path.join(directory, filename)
+            file = os.path.join(directory, filename)
 
-        log(f"Processing file: {filename}")
+            log(f"Processing file: {filename}")
 
-        pdf = PdfReader(file)
-        n_pages = len(pdf.pages)
+            pdf = PdfReader(file)
+            n_pages = len(pdf.pages)
 
-        last_date = '01/01/1900'
-        last_trades = pd.DataFrame()
+            last_date = '01/01/1900'
+            last_trades = pd.DataFrame()
 
-        for page in range(1, n_pages + 1):
+            for page in range(1, n_pages+1):
 
-            last_page_flag = page == n_pages
+                last_page_flag = page == n_pages
 
-            dates = get_dates(file, brokerHouse, page)
+                dates = get_dates(file, brokerHouse, page)
 
-            log(f"{filename} | Date {dates} | Page {page}/{n_pages}")
+                log(f"{filename} | Date {dates} | Page {page}/{n_pages}")
 
-            try:
+                try:
 
-                trades = get_trades(file, brokerHouse, page, last_page_flag)
+                    trades = get_trades(file, brokerHouse, page, last_page_flag)
 
-                if dates == last_date:
+                    if dates == last_date:
 
-                    trades = pd.concat([last_trades, trades], ignore_index=True)
+                        trades = pd.concat([last_trades, trades], ignore_index=True)
 
-                last_trades = trades.copy()
+                    last_trades = trades.copy()
 
-            except Exception as e:
+                except Exception as e:
 
-                log(f"⚠️ No trades found page {page} | {e}")
+                    log(f"⚠️ No trades found page {page} | {e}")
 
-            last_date = dates
+                last_date = dates
 
-            if page == n_pages:
+                if page == n_pages:
 
-                taxes = get_taxes(file, brokerHouse, page)
+                    output = trades
 
-                output = pro_rata_taxes(trades, dates, taxes)
-
-                value_error = validation_of_sum(output, taxes, log)
-
-                if value_error < 1:
                     full_output.append(output)
 
     grouped = final_adjustments(full_output)
