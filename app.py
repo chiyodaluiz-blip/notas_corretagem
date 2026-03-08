@@ -13,7 +13,7 @@ class StreamlitLogger:
         self.logs = ""
 
     def write(self, message):
-        if message.strip() != "":
+        if message.strip():
             self.logs += message
             self.container.text(self.logs)
 
@@ -39,6 +39,10 @@ if uploaded_files:
     if st.button("Processar notas"):
 
         log_box = st.empty()
+        progress_bar = st.progress(0)
+
+        def update_progress(p):
+            progress_bar.progress(min(int(p * 100), 100))
 
         with tempfile.TemporaryDirectory() as tmpdir:
 
@@ -54,7 +58,11 @@ if uploaded_files:
 
             try:
 
-                df = run_notas(tmpdir, broker)
+                df = run_notas(
+                    tmpdir,
+                    broker,
+                    progress_callback=update_progress
+                )
 
             except Exception as e:
 
@@ -68,6 +76,7 @@ if uploaded_files:
         st.success("Processamento concluído")
 
         st.subheader("Resultado final")
+
         st.dataframe(df)
 
         csv = df.to_csv(index=False).encode()
