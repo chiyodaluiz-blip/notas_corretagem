@@ -81,7 +81,35 @@ def get_dates(file, brokerHouse, page):
 
     return full_df[correct_str].unique()[0]
 
+def trades_adjustment(dfs, desired_cols, new_col_names):
 
+    full_df = []
+
+    for df in dfs:
+
+        for col in desired_cols:
+
+            if col not in df.columns:
+                continue
+
+            next_column = df.columns[df.columns.get_loc(col)+1]
+
+            if df[col].isnull().all() and 'Unnamed' in next_column:
+
+                df = df.drop(col, axis=1)
+                df.rename(columns={next_column: col}, inplace=True)
+
+        useful_df = df.loc[:, desired_cols].copy()
+
+        useful_df.columns = new_col_names
+
+        useful_df['Qty'] = br2us_ccy_format(useful_df['Qty'])
+        useful_df['Price'] = br2us_ccy_format(useful_df['Price'])
+
+        full_df.append(useful_df)
+
+    return pd.concat(full_df)
+    
 def get_trades(file, brokerHouse, page, last_page_flag):
 
     top = parameters_trades[brokerHouse]['top']
@@ -115,20 +143,12 @@ def get_trades(file, brokerHouse, page, last_page_flag):
         if correct_str in str(df[0].columns.values):
             break
 
-    full_df = []
+    full_df = trades_adjustment(df, desired_cols, new_col_names)
 
-    for d in df:
+    full_df.columns = new_col_names
+    full_df.reset_index(drop=True, inplace=True)
 
-        useful_df = d.loc[:, desired_cols].copy()
-
-        useful_df.columns = new_col_names
-
-        useful_df['Qty'] = br2us_ccy_format(useful_df['Qty'])
-        useful_df['Price'] = br2us_ccy_format(useful_df['Price'])
-
-        full_df.append(useful_df)
-
-    return pd.concat(full_df)
+    return full_df
 
 
 def get_taxes(file, brokerHouse, page):
