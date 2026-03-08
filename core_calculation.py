@@ -17,7 +17,6 @@ import tabula.io as tabula
 import warnings
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
 from datetime import datetime
 from pandas.api.types import is_string_dtype
 from PyPDF2 import PdfReader
@@ -407,7 +406,7 @@ def run_notas(directory, brokerHouse, progress_callback=None):
 
     # --------------------------------------------------
 
-    for filenaame in tqdm(files_in_folder):
+    for filename in files_in_folder:
 
         if filename.endswith(".pdf"):
 
@@ -419,7 +418,7 @@ def run_notas(directory, brokerHouse, progress_callback=None):
             last_date = '01/01/1900'
             last_trades = pd.DataFrame()
 
-            for page in tqdm(range(1, n_pages+1), leave=False):
+            for page in range(1, n_pages+1):
 
                 last_page_flag = False
 
