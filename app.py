@@ -2,11 +2,24 @@ import streamlit as st
 import tempfile
 import os
 import pandas as pd
-import io
 import sys
-from contextlib import redirect_stdout
 
 from core_calculation import run_notas
+
+
+class StreamlitLogger:
+    def __init__(self, container):
+        self.container = container
+        self.logs = ""
+
+    def write(self, message):
+        if message.strip() != "":
+            self.logs += message
+            self.container.text(self.logs)
+
+    def flush(self):
+        pass
+
 
 st.title("Processador de Notas de Corretagem (IRPF)")
 
@@ -25,8 +38,7 @@ if uploaded_files:
 
     if st.button("Processar notas"):
 
-        log_container = st.empty()
-        log_buffer = io.StringIO()
+        log_box = st.empty()
 
         with tempfile.TemporaryDirectory() as tmpdir:
 
@@ -35,27 +47,27 @@ if uploaded_files:
                 with open(path, "wb") as f:
                     f.write(file.getbuffer())
 
+            logger = StreamlitLogger(log_box)
+
+            old_stdout = sys.stdout
+            sys.stdout = logger
+
             try:
 
-                with redirect_stdout(log_buffer):
-
-                    df = run_notas(tmpdir, broker)
+                df = run_notas(tmpdir, broker)
 
             except Exception as e:
 
+                sys.stdout = old_stdout
                 st.error("Erro durante processamento")
                 st.exception(e)
                 st.stop()
 
-        logs = log_buffer.getvalue()
-
-        st.subheader("Logs de processamento")
-        st.text(logs)
+            sys.stdout = old_stdout
 
         st.success("Processamento concluído")
 
         st.subheader("Resultado final")
-
         st.dataframe(df)
 
         csv = df.to_csv(index=False).encode()
