@@ -439,7 +439,7 @@ def run_notas(directory, brokerHouse, progress_callback=None):
                         trades = pd.concat([last_trades, trades], ignore_index=True).reset_index(drop=True).copy()
 
                     last_trades = trades.copy()
-                    print("\n\t #Trades found for file " + filename + " on page " + str(page) + ": " + str(len(last_trades)))
+                    print("\n\t - #Trades found : " + str(len(last_trades)))
 
                 except:
 
