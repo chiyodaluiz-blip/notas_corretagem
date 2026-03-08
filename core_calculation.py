@@ -407,7 +407,7 @@ def run_notas(directory, brokerHouse, progress_callback=None):
 
     # --------------------------------------------------
 
-    for filename in tqdm(files_in_folder):
+    for filenaame in tqdm(files_in_folder):
 
         if filename.endswith(".pdf"):
 
