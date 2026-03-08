@@ -382,73 +382,98 @@ def get_dates(file, brokerHouse, page):
     return full_df
 
 
-def run_notas(directory, brokerHouse):
+def run_notas(directory, brokerHouse, progress_callback=None):
     ''' main function: load tables, process them and save it '''
 
-    # allocate output variable
     full_output = []
 
-    # treatment for processing all files in a folder or a single file
     if directory.endswith(".pdf"):
         files_in_folder = [os.path.basename(directory)]
         directory = os.path.dirname(directory)
     else:
         files_in_folder = os.listdir(directory)
 
+    # -------- count total pages (for progress) --------
+
+    total_pages = 0
+
+    for filename in files_in_folder:
+        if filename.endswith(".pdf"):
+            file = os.path.join(directory, filename)
+            pdf = PdfReader(file)
+            total_pages += len(pdf.pages)
+
+    processed_pages = 0
+
+    # --------------------------------------------------
+
     for filename in tqdm(files_in_folder):
-            if filename.endswith(".pdf"):
-                
-                file = os.path.join(directory, filename)
 
-                # Get the number of pages                
-                pdf = PdfReader(file)                
-                n_pages = len(pdf.pages)
+        if filename.endswith(".pdf"):
 
-                # flag to check if there are more than 1 page of trades in the day
-                last_date = '01/01/1900'
-                last_trades = pd.DataFrame()
-                
-                # get info from all pages
-                for page in tqdm(range(1, n_pages+1), leave=False):
-                    last_page_flag = False
+            file = os.path.join(directory, filename)
 
-                    if page == n_pages:
-                        last_page_flag = True
-                    
-                    dates = get_dates(file, brokerHouse, page)
+            pdf = PdfReader(file)
+            n_pages = len(pdf.pages)
 
-                    print("\n" + filename + " - trade date: " + dates +" page:" + str(page) + "/" + str(n_pages))
+            last_date = '01/01/1900'
+            last_trades = pd.DataFrame()
 
-                    try:
+            for page in tqdm(range(1, n_pages+1), leave=False):
 
-                        trades = get_trades(file, brokerHouse, page, last_page_flag)
+                last_page_flag = False
 
-                        if dates == last_date:
-                            #trades = last_trades.append(trades).reset_index(drop=True).copy()
-                            trades = pd.concat([last_trades, trades], ignore_index=True).reset_index(drop=True).copy()
+                if page == n_pages:
+                    last_page_flag = True
 
-                        last_trades = trades.copy()
+                dates = get_dates(file, brokerHouse, page)
 
-                    except:
-                        print("no trades found for " + filename + " on page " + str(page))
+                print("\n" + filename + " - trade date: " + dates +" page:" + str(page) + "/" + str(n_pages))
 
-                    # update flag
-                    last_date = dates
-                    
-                    if page == n_pages: #for the last page, get the taxes
-                        taxes = get_taxes(file, brokerHouse, page)
-                        output = pro_rata_taxes(trades, dates, taxes)
-                        value_error = validation_of_sum(output, taxes)
+                try:
 
-                        # Append it (if ok)
-                        if value_error < 1:
-                            full_output.append(output)
-    # make it one big df and save as excel
+                    trades = get_trades(file, brokerHouse, page, last_page_flag)
+
+                    if dates == last_date:
+                        trades = pd.concat([last_trades, trades], ignore_index=True).reset_index(drop=True).copy()
+
+                    last_trades = trades.copy()
+
+                except:
+
+                    print("no trades found for " + filename + " on page " + str(page))
+
+                last_date = dates
+
+                if page == n_pages:
+
+                    taxes = get_taxes(file, brokerHouse, page)
+
+                    output = pro_rata_taxes(trades, dates, taxes)
+
+                    value_error = validation_of_sum(output, taxes)
+
+                    if value_error < 1:
+                        full_output.append(output)
+
+                # ---------- progress update ----------
+
+                processed_pages += 1
+
+                if progress_callback and total_pages > 0:
+                    progress_callback(processed_pages / total_pages)
+
+                # -------------------------------------
+
     grouped = final_adjustments(full_output, directory)
 
-    # Export
-    grouped.to_excel(os.path.join(directory, 'outputGroupedByTicker_' +
-                                  datetime.now().strftime("%Y_%m_%d-%I_%M_%p") + '.xlsx'))
+    grouped.to_excel(
+        os.path.join(
+            directory,
+            'outputGroupedByTicker_' +
+            datetime.now().strftime("%Y_%m_%d-%I_%M_%p") + '.xlsx'
+        )
+    )
 
     return grouped
 
