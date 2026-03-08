@@ -3,7 +3,7 @@ import tempfile
 import os
 from core_calculation import run_notas
 
-st.set_page_config(page_title="Notas de Corretagem Parser")
+st.set_page_config(page_title="Notas de Corretagem")
 
 st.title("Processador de Notas de Corretagem")
 
@@ -21,14 +21,11 @@ uploaded_files = st.file_uploader(
 process_button = st.button("Processar notas")
 
 log_container = st.empty()
-
 logs = []
-
 
 def log(msg):
     logs.append(msg)
     log_container.code("\n".join(logs))
-
 
 if process_button and uploaded_files:
 
