@@ -428,7 +428,9 @@ def run_notas(directory, brokerHouse, progress_callback=None):
 
                 dates = get_dates(file, brokerHouse, page)
 
-                print("\n" + filename + " - trade date: " + dates +" page:" + str(page) + "/" + str(n_pages))
+                print("\n" + "📄Processing file "+ filename)
+                print("\n\t" + " - Trade date: " + dates)
+                print("\n\t" + " - Page: " + str(page) + "/" + str(n_pages))
 
                 try:
 
@@ -438,10 +440,11 @@ def run_notas(directory, brokerHouse, progress_callback=None):
                         trades = pd.concat([last_trades, trades], ignore_index=True).reset_index(drop=True).copy()
 
                     last_trades = trades.copy()
+                    print("\n\t #Trades found for file " + filename + " on page " + str(page) + ": " + str(len(last_trades)))
 
                 except:
 
-                    print("no trades found for " + filename + " on page " + str(page))
+                    print("\n\t⚠️No trades found for file " + filename + " on page " + str(page))
 
                 last_date = dates
 
@@ -523,10 +526,10 @@ def validation_of_sum(df,taxes):
     value_error = abs(
         abs(sum(np.array(df['ValorPagoSign']))) - abs(np.array(taxes['ValorTotal'])))
     if value_error > 1:
-        print('\n ERROR in day ' + df['Date'].unique()[0]
+        print('\n\t❌ERROR in day ' + df['Date'].unique()[0]
               + '! The diff between calculated and real values is R$ ' + str(value_error))
     else:
-        print('\n Validation OK for day ' + df['Date'].unique()[0])
+        print('\n\t✅Validation OK for day ' + df['Date'].unique()[0])
     return value_error
 
 
